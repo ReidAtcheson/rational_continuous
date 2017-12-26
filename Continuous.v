@@ -9,6 +9,22 @@ Require Import Omega.
 
 Definition Continuous (f:Q->Q) := forall x0 e,
 e>0 -> {d | 0<d /\ forall x, Qabs (x-x0) < d -> Qabs ( (f x) - (f x0) ) < e}.
+Definition UniformlyContinuous (f:Q->Q) := forall e, 
+e>0 -> {d | 0<d /\ forall x x0, Qabs (x - x0) < d -> Qabs ( (f x) - (f x0) ) < e}.
+
+Theorem uniformly_continuous_is_continuous : forall (f:Q->Q), UniformlyContinuous f -> Continuous f.
+Proof.
+intros.
+unfold UniformlyContinuous in H. unfold Continuous.
+intros.
+assert(H1 := (H e H0)).
+destruct H1.
+destruct a.
+exists x.
+split.
+* lra.
+* intros. auto with *.
+Qed.
 
 Lemma Qabs_extensional : forall q1 q2, q1==q2 -> Qabs q1 == Qabs q2.
 Proof.
@@ -46,6 +62,9 @@ Definition const (x:Q) := 0.
 Definition linear (x:Q) := x.
 (*Function with "discontinuity" at zero*)
 Definition bad (x:Q) := if (Qlt_le_dec 0 x) then 1 else 0.
+Definition worse (x:Q) := if (Qlt_le_dec (2#1) (x*x)) then 1 else 0.
+
+
 
 
 
@@ -118,4 +137,11 @@ assert(not (Qabs 1 < 1#2)).
 
 }
 contradiction.
+Qed.
+
+
+Theorem worse_is_continuous : Continuous worse.
+Proof.
+unfold Continuous.
+intros.
 Qed.
