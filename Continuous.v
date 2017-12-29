@@ -7,6 +7,7 @@ Require Import Psatz.
 Require Import Init.Nat.
 Require Import ZArith.BinInt.
 Require Import ZArith.Zpow_facts.
+Require Import PArith.Pnat.
 Require Import Omega.
 
 Definition Continuous (f:Q->Q) := forall x0 e,
@@ -31,14 +32,13 @@ split.
 * intros. auto with *.
 Qed.
 
-
 Lemma useful_order_property : forall e r:Q, e>0 -> {r>-e} + {r<=e}.
 Proof.
 intros.
 destruct (Qlt_le_dec 0 r).
 * assert( -e < r) by lra. auto.
 * assert( r<= e ) by lra. auto.
-Qed.
+Defined.
 
 Lemma Qpower_reduction : forall a (n:Z), (n>0)%Z -> a>0 -> a^n == a*(a^(n-1)).
 Proof.
@@ -91,6 +91,59 @@ destruct n.
   apply powertwo_bigger_than_exp_pos.
 Qed.
 
+Lemma powertwo_bigger_than_exp_positive : forall (p:positive), (2^(Zpos p) > Zpos p)%Z.
+Proof.
+intros.
+remember (Pos.to_nat p) as m.
+assert( (m>0)%nat ). {
+  rewrite Heqm.
+  apply Pos2Nat.is_pos.
+}
+assert( Z.pos p = Z.of_nat m ). {
+  rewrite Heqm.
+  assert( Z.of_nat (Pos.to_nat p) = Z.pos p) by apply positive_nat_Z.
+  rewrite H0. auto.
+}
+rewrite H0.
+apply (powertwo_bigger_than_exp).
+Qed.
+
+
+Lemma powertwo_bigger_than_exp_positive2 : forall (p:positive), (2^p > p)%positive.
+Proof.
+Admitted.
+
+
+
+Theorem smaller_rational_works : forall r, r>0 -> (1#2)^(Zpos (Qden r)) < r.
+Proof.
+Admitted.
+(*
+intros.
+destruct r.
+simpl.
+assert( Qpower_positive (1#2) Qden = 1^(Zpos Qden) # 2^Qden ). {
+  apply Qpower_decomp.
+}
+rewrite H0.
+assert( (1 ^ Z.pos Qden = 1)%Z ) by apply Zpower_pos_1_l.
+rewrite H1.
+unfold Qlt. simpl.
+assert( (Z.pos (2^Qden) = ( 2^ (Z.pos Qden)))%Z ). {
+  destruct Qden.
+  * simpl.
+}
+
+assert( (Z.pos Qden < Z.pos (2^Qden))%Z ). {
+  remember ( (Z.to_nat (Z.pos Qden))) as m.
+  assert( Z.pos (2^Qden
+  assert( ( 2 ^ (Z.of_nat m) > Z.of_nat m)%Z ). {
+    apply powertwo_bigger_than_exp.
+  }
+}
+*)
+
+
 
 Lemma qnum_powerhalf_is_1 : forall (n:nat), (Qnum ((1#2) ^ (Z.of_nat n)) = 1)%Z.
 Proof.
@@ -108,86 +161,165 @@ destruct n.
   rewrite H. simpl. 
   apply Zpower_pos_1_l.
 Qed.
-Lemma bound_e : forall e, e>0 -> {n:nat | (1#2)^(Z.of_nat n) < e}.
-Proof.
-intros.
-exists (Z.to_nat (Zpos (Qden e))).
-simpl.
-remember ( ((1 # 2) ^ Z.of_nat (Pos.to_nat (Qden e)))) as z.
-assert((Qnum z = 1)%Z). {
-  rewrite Heqz.
-  apply qnum_powerhalf_is_1.
-}
-remember (Z.of_nat (Pos.to_nat (Qden e))) as m.
-assert( (((Qden z) = 2^(Qden e))%positive )). {
-  rewrite Heqz.
-  unfold Qpower. destruct m.
-  * simpl. 
-}
-assert( (Qden z = 2^(Zpos (Z.of_nat (Pos.to_nat (Qden e)))))%positive ).
-unfold Qlt.
-assert( (Qnum ((1 # 2) ^ ' Qden e) = 1)%Z ). {
-  unfold Qpower.
-  induction (Qden e).
-  * simpl. 
-}
-Qed.
 
-
-Theorem itv (f:Q->Q) (e:Q) : e>0 -> UniformlyContinuous f -> (f 0) < 0 -> (f 1) > 0
--> {c | c>0 /\c<1 /\ Qabs (f c)<e}.
-Proof.
-intros.
-
-Qed.
-
-Fixpoint bisect (f:Q->Q) (a:Q) (b:Q) (m:nat) := match m with
-  0%nat => (1#2)*(a+b)
-| S p => 
-  let fa_eq_zero := Qeq_dec 0 (f a) in
-  let fb_eq_zero := Qeq_dec 0 (f b) in
+Fixpoint bisect_a (f:Q->Q) (a:Q) (b:Q) (e:Q) (He:(e>0)) (m:nat) := match m with
+  0%nat => a
+|   S p =>
   let mid := (1#2)*(a+b) in
-  let negfa := Qlt_le_dec 0 (f a) in
-  let negfmid := Qlt_le_dec 0 (f mid) in
-  let negfb := Qlt_le_dec 0 (f b) in
-  if fa_eq_zero then a
-  else 
-    if fb_eq_zero then b
-    else 
-      if negfmid then
-        if negfa then
-          bisect f mid b p
-        else
-          bisect f a mid p
-      else
-        if negfb then
-          bisect f mid b p
-        else
-          bisect f a mid p
+  if (useful_order_property e (f mid) He)
+    then (bisect_a f a mid e He p)
+    else (bisect_a f mid b e He p)
 end.
+
+
+Fixpoint bisect_b (f:Q->Q) (a:Q) (b:Q) (e:Q) (He:(e>0)) (m:nat) := match m with
+  0%nat => b
+|   S p =>
+  let mid := (1#2)*(a+b) in
+  if (useful_order_property e (f mid) He)
+    then (bisect_b f a mid e He p)
+    else (bisect_b f mid b e He p)
+end.
+
+
+Fixpoint bisect_c (f:Q->Q) (a:Q) (b:Q) (e:Q) (He:(e>0)) (m:nat) := match m with
+  0%nat => (1#2)*(a+b)
+|   S p =>
+  let mid := (1#2)*(a+b) in
+  if (useful_order_property e (f mid) He)
+    then (bisect_c f a mid e He p)
+    else (bisect_c f mid b e He p)
+end.
+
+
+Definition err := 1#100.
+Theorem a_pos_err : err>0.
+Proof.
+unfold err. lra.
+Qed.
+
+
+
+
 
 Definition sqrt_err (x:Q) := x*x-(2#1).
 
+Eval vm_compute in (bisect_c sqrt_err 1 (2#1) err a_pos_err 10).
 
-(* Sanity check
-Eval compute in (bisect sqrt_err 1 (2#1) 10).
-*)
 
-Theorem bisect_bounds (a:Q) (b:Q) : forall (n:nat), forall (f:Q->Q), 
-  UniformlyContinuous f -> a<b -> (f a)<0 -> (f b)>0 -> forall x, not (f x == 0)
-  -> bisect f a b n >=0 /\ bisect f a b n <= ((1#2)*(b-a))^(Z.of_nat n).
+Lemma exponential_bound : forall (e:Q), e>0 -> {n:Z | (1#2)^n < e}.
+Proof.
+Admitted.
+
+Lemma bisect_a_works : forall (f:Q->Q) (e:Q) (H:e>0) (n:nat), (f 0) < 0 -> (f 1) > 0 -> 
+f (bisect_a f 0 1 e H n) < e.
+Proof.
+Admitted.
+
+Lemma bisect_b_works : forall (f:Q->Q) (e:Q) (H:e>0) (n:nat), (f 0) < 0 -> (f 1) > 0 -> 
+f (bisect_b f 0 1 e H n) > -e.
+Proof.
+Admitted.
+
+Lemma bisect_c_works : forall (f:Q->Q) (e:Q) (H:e>0) (n:nat), (f 0) < 0 -> (f 1) > 0 -> 
+(bisect_c f 0 1 e H n) - (bisect_a f 0 1 e H n) <= (1#2)^(Z.of_nat n) /\
+(bisect_b f 0 1 e H n) - (bisect_c f 0 1 e H n) <= (1#2)^(Z.of_nat n).
+Proof.
+Admitted.
+
+Lemma bisect_c_bounds : forall (f:Q->Q) (e:Q) (H:e>0) (n:nat),
+0<bisect_c f 0 1 e H n /\ bisect_c f 0 1 e H n<1.
+Proof.
+Admitted.
+
+Lemma Qabs_bounds : forall (q:Q) (e:Q), e>0 -> -e<q -> q<e -> Qabs q < e.
 Proof.
 Admitted.
 
 
-
-
-
-Theorem intermediate_value_theorem : forall (f:Q->Q), forall e, e>0 -> UniformlyContinuous f -> (f 0) < 0 -> (f 1) > 0 -> {c | Qabs (f c) < e}.
+Theorem intermediate_value_theorem : forall (f:Q->Q) (e:Q), UniformlyContinuous f -> e>0 -> (f 0) < 0 -> (f 1) > 0 ->
+{ c | 0<c /\ c<1 /\ Qabs (f c) < e }.
 Proof.
 intros.
 
+(*First use uniform continuity
+  to get a delta to satisfy error*)
+unfold UniformlyContinuous in H.
+assert( (1#2)*e > 0) by lra.
+assert( P0 := (H ((1#2)*e) H3)).
+destruct P0.
+remember x as delta.
+destruct a.
+(*Now we have delta, need corresponding 
+  natural number n to give bisection
+  algorithm*)
+assert( P1 := exponential_bound delta H4 ).
+destruct P1.
+remember x0 as n.
+(*Use bisection to compute a,b,c such that
+  f a<e/2, f b>-e/2, c-a<delta, b-c<delta *)
+remember (bisect_a f 0 1 ((1#2)*e) H3 (Z.to_nat n)) as a.
+remember (bisect_b f 0 1 ((1#2)*e) H3 (Z.to_nat n)) as b.
+remember (bisect_c f 0 1 ((1#2)*e) H3 (Z.to_nat n)) as c.
+
+(* First show f a<e/2 *)
+assert( f a < (1#2)*e ). {
+  rewrite Heqa.
+  apply bisect_a_works.
+  lra. lra.
+}
+(* Secondly: f b > -(1#2)*e *)
+assert( f b > -((1#2)*e)). {
+  rewrite Heqb.
+  apply bisect_b_works.
+  lra. lra.
+}
+(*Lastly show that the computed
+  c satisfies the necessary bounds*)
+assert( c-a < (1#2)^n ). {
+  admit.
+}
+assert( b-c < (1#2)^n ). {
+  admit.
+}
+
+(*With last two bounds we may use the fact that
+  fb + (1#2)*e > 0 to get
+  0<fb < fb - fc + fc + (1#2)*e < fc + e ->
+  -e < fc *)
+  assert(-e < (f c) ). {
+    admit.
+  }
+  
+(*With first and last bounds we may use the fact that
+  fa-(1#2)*e<0 to get
+  fc < fc - fa + (1#2)*e < e *)
+  assert( (f c) < e ). {
+    admit.
+  }
+  
+  
+(* The last two results may be combined to get the desired result *)
+
+assert( Qabs (f c) < e ). {
+  apply Qabs_bounds. lra. lra. lra.
+}
+
+exists c.
+assert( 0<c /\ c<1). {
+  rewrite Heqc.
+  apply bisect_c_bounds.
+}
+
+destruct H13.
+split.
+* auto with *.
+* auto with *.
+
+
 Qed.
+
+
 
 Lemma Qabs_extensional : forall q1 q2, q1==q2 -> Qabs q1 == Qabs q2.
 Proof.
